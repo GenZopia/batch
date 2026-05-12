@@ -35,7 +35,7 @@ from typing import Any, Dict, List, Optional
 
 import aiosqlite
 
-from config import DB_PATH
+from config import DB_PATH, resolve_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -81,17 +81,19 @@ class RoverDatabase:
     def __init__(self) -> None:
         self._db: Optional[aiosqlite.Connection] = None
         self._current_session_id: Optional[int]  = None
+        self._db_path: Path = DB_PATH
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
     async def init(self) -> None:
         """Open connection and ensure schema exists."""
-        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        self._db = await aiosqlite.connect(str(DB_PATH))
+        self._db_path = resolve_db_path()
+        self._db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._db = await aiosqlite.connect(str(self._db_path))
         self._db.row_factory = aiosqlite.Row
         await self._db.executescript(_DDL)
         await self._db.commit()
-        logger.info("Database ready: %s", DB_PATH)
+        logger.info("Database ready: %s", self._db_path)
 
     async def close(self) -> None:
         if self._db:

@@ -18,9 +18,37 @@ load_dotenv()  # reads .env in project root
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR   = Path(__file__).parent
 MODEL_PATH = BASE_DIR / "ai" / "disease_model.tflite"
-DB_PATH    = BASE_DIR / "memory" / "rover.db"
 REPORT_DIR = BASE_DIR / "reports"
 REPORT_DIR.mkdir(exist_ok=True)
+
+
+def _is_writable_path(path: Path) -> bool:
+    try:
+        if path.exists():
+            return os.access(path, os.W_OK)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return os.access(path.parent, os.W_OK)
+    except OSError:
+        return False
+
+
+def resolve_db_path() -> Path:
+    """Return a writable SQLite path, preferring the project memory folder."""
+    override = os.getenv("ROVER_DB_PATH")
+    if override:
+        return Path(override).expanduser()
+
+    preferred = BASE_DIR / "memory" / "rover.db"
+    if _is_writable_path(preferred):
+        return preferred
+
+    fallback_dir = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "agrirover"
+    fallback = fallback_dir / "rover.db"
+    fallback_dir.mkdir(parents=True, exist_ok=True)
+    return fallback
+
+
+DB_PATH = resolve_db_path()
 
 
 # ── GPIO Pin Assignments (BCM numbering) ──────────────────────────────────────
